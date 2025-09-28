@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simon Says - Game Jari</title>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #video, #canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 10px;
+      z-index: 10;
+    }
+
+    #gesture {
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+
+    #feedback {
+      font-size: 2rem;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+    <div id="ui">
+      <div>🧠 <b>Simon Says</b></div>
+      <div id="gesture">Tunggu...</div>
+      <div>⏱️ Waktu: <span id="timer">3</span> detik</div>
+      <div>🏆 Skor: <span id="score">0</span></div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const gestureText = document.getElementById('gesture');
+    const timerText = document.getElementById('timer');
+    const scoreText = document.getElementById('score');
+    const feedback = document.getElementById('feedback');
+
+    let canvasWidth = 640;
+    let canvasHeight = 480;
+
+    let currentGesture = null;
+    let timer = 3;
+    let score = 0;
+    let countdownInterval = null;
+    let awaitingResult = false;
+
+    const gestures = [
+      { name: "✊ Genggam", fingers: 0 },
+      { name: "✌️ Dua Jari", fingers: 2 },
+      { name: "🖐️ Lima Jari", fingers: 5 }
+    ];
+
+    function pickRandomGesture() {
+      return gestures[Math.floor(Math.random() * gestures.length)];
+    }
+
+    function startNewRound() {
+      currentGesture = pickRandomGesture();
+      gestureText.textContent = `Simon Says: ${currentGesture.name}`;
+      timer = 3;
+      timerText.textContent = timer;
+      feedback.textContent = '';
+      awaitingResult = true;
+
+      countdownInterval = setInterval(() => {
+        timer--;
+        timerText.textContent = timer;
+        if (timer <= 0) {
+          clearInterval(countdownInterval);
+          checkGesture(); // check after time runs out
+        }
+      }, 1000);
+    }
+
+    function checkGesture() {
+      awaitingResult = false;
+      if (lastFingerCount === currentGesture.fingers) {
+        score++;
+        feedback.textContent = "✅ Benar!";
+      } else {
+        feedback.textContent = `❌ Salah! (Deteksi: ${lastFingerCount} jari)`;
+      }
+      scoreText.textContent = score;
+      setTimeout(startNewRound, 2000); // start next round
+    }
+
+    function countFingers(landmarks) {
+      const tips = [8, 12, 16, 20]; // telunjuk sampai kelingking
+      let count = 0;
+      for (let i = 0; i < tips.length; i++) {
+        if (landmarks[tips[i]].y < landmarks[tips[i] - 2].y) {
+          count++;
+        }
+      }
+
+      // Thumb (ibu jari)
+      if (landmarks[4].x > landmarks[3].x) count++;
+      return count;
+    }
+
+    let lastFingerCount = 0;
+
+    const hands = new Hands({
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    hands.onResults(results => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+      if (results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+        drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+        drawLandmarks(ctx, landmarks, { color: '#FF0000', lineWidth: 2 });
+
+        lastFingerCount = countFingers(landmarks);
+      }
+    });
+
+    const camera = new Camera(video, {
+      onFrame: async () => {
+        await hands.send({ image: video });
+      },
+      width: canvasWidth,
+      height: canvasHeight
+    });
+    camera.start();
+
+    function resizeCanvas() {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    video.addEventListener('loadedmetadata', () => {
+      resizeCanvas();
+      startNewRound();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+  </script>
+</body>
+</html>

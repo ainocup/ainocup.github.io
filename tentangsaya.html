@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tentang saya</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #121212;
+      color: #ffffff;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .typing-container {
+      max-width: 800px;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 10px;
+      background-color: #00ffcc;
+      animation: blink 0.8s infinite;
+      margin-left: 2px;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @media (max-width: 600px) {
+      .typing-container {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="typing-container" id="typing-text">
+    <span id="typed"></span><span class="cursor"></span>
+  </div>
+
+  <script>
+    const text = `Halo semuanya!\n\nPerkenalkan, nama saya Ardiansyah. Saya lahir di Palembang, dan memiliki minat yang besar terhadap dunia Kecerdasan Buatan (Artificial Intelligence).\n\nMelalui kesempatan ini, saya ingin membagikan sedikit pengetahuan dan pengalaman saya tentang AI kepada teman-teman sekalian. Semoga apa yang saya bagikan bisa memberikan manfaat, wawasan baru, atau bahkan menginspirasi kalian untuk lebih mengenal dan mendalami bidang ini.\n\nJika ada yang ingin berdiskusi lebih lanjut atau memiliki pertanyaan, jangan ragu untuk menghubungi saya melalui email: 1ardi1ans@gmail.com`;
+
+    const typedElement = document.getElementById("typed");
+    let index = 0;
+    const speed = 25; // kecepatan ketik (ms per karakter)
+
+    function typeText() {
+      if (index < text.length) {
+        typedElement.innerHTML += text.charAt(index) === "\n" ? "<br>" : text.charAt(index);
+        index++;
+        setTimeout(typeText, speed);
+      }
+    }
+
+    window.onload = typeText;
+  </script>
+</body>
+</html>

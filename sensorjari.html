@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Deteksi Jari dengan Output Suara</title>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: black;
+    }
+
+    #container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: black;
+    }
+
+    #video, #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirroring untuk kamera depan */
+    }
+
+    #outputText {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 1.5rem;
+      color: white;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+    <div id="outputText">Menunggu...</div>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const outputText = document.getElementById('outputText');
+
+    function distance(a, b) {
+      return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+    }
+
+    function isPinching(landmarks) {
+      return distance(landmarks[4], landmarks[8]) < 0.05;
+    }
+
+    function isFist(landmarks) {
+      const tips = [8, 12, 16, 20];
+      return tips.every(tip => landmarks[tip].y > landmarks[tip - 2].y);
+    }
+
+    function playSoundSequence(text1, text2, delayMs) {
+      const utterance1 = new SpeechSynthesisUtterance(text1);
+      const utterance2 = new SpeechSynthesisUtterance(text2);
+
+      utterance1.lang = 'id-ID';
+      utterance1.rate = 1;
+      utterance1.pitch = 1;
+
+      utterance2.lang = 'id-ID';
+      utterance2.rate = 1;
+      utterance2.pitch = 1;
+
+      speechSynthesis.speak(utterance1);
+
+      utterance1.onend = () => {
+        setTimeout(() => {
+          speechSynthesis.speak(utterance2);
+        }, delayMs);
+      };
+    }
+
+    let lastActionTime = 0;
+    const delay = 1000; // 1 detik agar tidak terlalu sering deteksi ulang
+    const pauseBetween = 3000; // 3 detik jeda antara "Halo sistem" dan "hidupkan/matikan"
+
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    hands.onResults(results => {
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const landmarks = results.multiHandLandmarks[0];
+
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+        drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
+
+        outputText.textContent = 'Tangan terdeteksi';
+
+        const now = Date.now();
+
+        if (isPinching(landmarks)) {
+          outputText.textContent = "Jari telunjuk menyentuh ibu jari (HIDUPKAN)";
+          if (now - lastActionTime > delay) {
+            playSoundSequence("Halo sistem", "hidupkan", pauseBetween);
+            lastActionTime = now;
+          }
+        } else if (isFist(landmarks)) {
+          outputText.textContent = "Genggaman tangan (MATIKAN)";
+          if (now - lastActionTime > delay) {
+            playSoundSequence("Halo sistem", "matikan", pauseBetween);
+            lastActionTime = now;
+          }
+        }
+      } else {
+        outputText.textContent = 'Tangan tidak terdeteksi';
+      }
+    });
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await hands.send({ image: videoElement });
+      },
+      width: 1280,
+      height: 720
+    });
+    camera.start();
+
+    function resizeCanvas() {
+      canvasElement.width = videoElement.videoWidth;
+      canvasElement.height = videoElement.videoHeight;
+    }
+
+    videoElement.addEventListener('loadedmetadata', resizeCanvas);
+    window.addEventListener('resize', resizeCanvas);
+  </script>
+</body>
+</html>

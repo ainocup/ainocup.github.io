@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deteksi Manusia Responsive</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: black;
+      height: 100%;
+      width: 100%;
+    }
+
+    #video, #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirrored view */
+    }
+
+    #status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 18px;
+      border-radius: 5px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<video id="video" autoplay muted playsinline></video>
+<canvas id="canvas"></canvas>
+<div id="status">Memuat model...</div>
+
+<script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const statusDiv = document.getElementById('status');
+
+  let lastDetected = false;
+
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'id-ID';
+    speechSynthesis.speak(utterance);
+  }
+
+  // Sinkronisasi ukuran canvas dengan video
+  function resizeCanvas() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+  }
+
+  async function setupCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+    video.srcObject = stream;
+    return new Promise(resolve => {
+      video.onloadedmetadata = () => {
+        resizeCanvas();
+        resolve(video);
+      };
+    });
+  }
+
+  async function run() {
+    await setupCamera();
+    video.play();
+
+    const model = await cocoSsd.load();
+    statusDiv.innerText = "Model siap - Mendeteksi manusia...";
+
+    async function detectFrame() {
+      resizeCanvas(); // Pastikan ukuran canvas mengikuti video
+
+      const predictions = await model.detect(video);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      let personFound = false;
+
+      predictions.forEach(prediction => {
+        if (prediction.class === "person" && prediction.score > 0.5) {
+          personFound = true;
+
+          ctx.strokeStyle = "#00FF00";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(...prediction.bbox);
+
+          ctx.fillStyle = "#00FF00";
+          ctx.font = "18px Arial";
+          ctx.fillText("Manusia", prediction.bbox[0], prediction.bbox[1] > 20 ? prediction.bbox[1] - 5 : 10);
+        }
+      });
+
+      if (personFound && !lastDetected) {
+        speak("Selamat datang, Anda terdeteksi di kamera.");
+        statusDiv.innerText = "Manusia Terdeteksi";
+        lastDetected = true;
+      } else if (!personFound && lastDetected) {
+        statusDiv.innerText = "Tidak Ada Manusia";
+        lastDetected = false;
+      }
+
+      requestAnimationFrame(detectFrame);
+    }
+
+    detectFrame();
+  }
+
+  run();
+
+  // Re-resize canvas saat layar diubah ukurannya
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+  });
+</script>
+
+</body>
+</html>
