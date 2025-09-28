@@ -1,175 +1,97 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Lukisan Udara Deteksi Jari</title>
-
-  <!-- MediaPipe -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gambar Responsive & Animasi</title>
   <style>
-    html, body {
+    body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background: black;
-    }
-
-    #container {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
+      font-family: sans-serif;
+      background: linear-gradient(to bottom, #f0f4ff, #ffffff);
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      background-color: black;
+      justify-content: center;
+      min-height: 100vh;
     }
 
-    #video, #canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1); /* Mirroring untuk kamera depan */
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+      animation: fadeIn 1s ease-in-out;
     }
 
-    #outputText {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 1.5rem;
-      color: white;
-      background: rgba(0, 0, 0, 0.5);
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      width: 90%;
+      max-width: 800px;
       padding: 10px;
-      border-radius: 5px;
-      z-index: 10;
+    }
+
+    .container a {
+      display: block;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+      opacity: 0;
+      transform: translateY(40px);
+      animation: fadeUp 1s forwards;
+    }
+
+    .container a:nth-child(1) {
+      animation-delay: 0.2s;
+    }
+    .container a:nth-child(2) {
+      animation-delay: 0.4s;
+    }
+
+    .container a:hover {
+      transform: translateY(-8px) scale(1.03);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    }
+
+    .container img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+
+    .container a:hover img {
+      transform: scale(1.05);
+    }
+
+    @keyframes fadeUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div id="container">
-    <video id="video" autoplay muted playsinline></video>
-    <canvas id="canvas"></canvas>
-    <div id="outputText">Menunggu...</div>
+  <h1>✨✨</h1>
+  <div class="container">
+    <a href="tentangsaya.html" target="_blank">
+      <img src="ainocup.jpeg" alt="Gambar 1">
+    </a>
+    <a href="projectai.html" target="_blank">
+      <img src="projectai.jpeg" alt="Gambar 2">
+    </a>
+    <a href="https://saweria.co/ainocup" target="_blank">
+      <img src="donasi.jpeg" alt="Gambar 2">
+    </a>
   </div>
-
-  <script>
-    const videoElement = document.getElementById('video');
-    const canvasElement = document.getElementById('canvas');
-    const canvasCtx = canvasElement.getContext('2d');
-    const outputText = document.getElementById('outputText');
-
-    let drawing = false;
-    let drawingPoints = [];
-
-    function distance(a, b) {
-      return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
-    }
-
-    function isPinching(landmarks) {
-      return distance(landmarks[4], landmarks[8]) < 0.05;
-    }
-
-    function isFist(landmarks) {
-      const tips = [8, 12, 16, 20];
-      return tips.every(tip => landmarks[tip].y > landmarks[tip - 2].y);
-    }
-
-    function countFingers(landmarks) {
-      const tips = [8, 12, 16, 20];
-      let count = 0;
-      for (let i = 0; i < tips.length; i++) {
-        if (landmarks[tips[i]].y < landmarks[tips[i] - 2].y) {
-          count++;
-        }
-      }
-      if (landmarks[4].x > landmarks[3].x) count++; // thumb
-      return count;
-    }
-
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-    });
-
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.7
-    });
-
-    hands.onResults(results => {
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-
-        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
-        drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
-
-        const fingerCount = countFingers(landmarks);
-        outputText.textContent = `Jumlah Jari: ${fingerCount}`;
-
-        if (isPinching(landmarks)) {
-          drawing = true;
-          const point = landmarks[8]; // ujung telunjuk
-          drawingPoints.push({
-            x: point.x * canvasElement.width,
-            y: point.y * canvasElement.height
-          });
-        } else {
-          drawing = false;
-          drawingPoints.push(null); // supaya garis terputus
-        }
-
-        if (isFist(landmarks)) {
-          drawingPoints = [];
-          outputText.textContent = "Genggaman Terdeteksi - Menghapus!";
-        }
-
-        // Gambar hasil lukisan
-        canvasCtx.beginPath();
-        canvasCtx.strokeStyle = 'cyan';
-        canvasCtx.lineWidth = 5;
-        for (let i = 1; i < drawingPoints.length; i++) {
-          const p1 = drawingPoints[i - 1];
-          const p2 = drawingPoints[i];
-          if (p1 && p2) {
-            canvasCtx.moveTo(p1.x, p1.y);
-            canvasCtx.lineTo(p2.x, p2.y);
-          }
-        }
-        canvasCtx.stroke();
-      } else {
-        outputText.textContent = 'Tangan tidak terdeteksi';
-      }
-    });
-
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await hands.send({ image: videoElement });
-      },
-      width: 1280,
-      height: 720
-    });
-    camera.start();
-
-    // Pastikan canvas selalu menyesuaikan ukuran video
-    function resizeCanvas() {
-      canvasElement.width = videoElement.videoWidth;
-      canvasElement.height = videoElement.videoHeight;
-    }
-
-    videoElement.addEventListener('loadedmetadata', resizeCanvas);
-    window.addEventListener('resize', resizeCanvas);
-  </script>
 </body>
 </html>
